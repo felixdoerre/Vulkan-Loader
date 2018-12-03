@@ -298,14 +298,14 @@ static inline bool debug_log_msg(const debug_report_data *debug_data, VkFlags ms
             }
         }
         // Look for any debug utils or marker names to use for this object
-        callback_data.pObjects[0].pObjectName = NULL;
+        object_name_info.pObjectName = NULL;
         auto utils_name_iter = debug_data->debugUtilsObjectNameMap->find(src_object);
         if (utils_name_iter != debug_data->debugUtilsObjectNameMap->end()) {
-            callback_data.pObjects[0].pObjectName = utils_name_iter->second.c_str();
+            object_name_info.pObjectName = utils_name_iter->second.c_str();
         } else {
             auto marker_name_iter = debug_data->debugObjectNameMap->find(src_object);
             if (marker_name_iter != debug_data->debugObjectNameMap->end()) {
-                callback_data.pObjects[0].pObjectName = marker_name_iter->second.c_str();
+                object_name_info.pObjectName = marker_name_iter->second.c_str();
             }
         }
         if (NULL != callback_data.pObjects[0].pObjectName) {
@@ -392,6 +392,10 @@ static inline bool debug_messenger_log_msg(const debug_report_data *debug_data,
 
     DebugAnnotFlagsToReportFlags(message_severity, message_type, &object_flags);
 
+    std::vector<VkDebugUtilsObjectNameInfoEXT> objects = std::vector<VkDebugUtilsObjectNameInfoEXT>(callback_data->objectCount);
+    memcpy(objects.data(), callback_data->pObjects, sizeof(VkDebugUtilsObjectNameInfoEXT) * callback_data->objectCount);
+    callback_data->pObjects = objects.data();
+
     while (layer_dbg_node) {
         if (layer_dbg_node->is_messenger && (layer_dbg_node->messenger.messageSeverity & message_severity) &&
             (layer_dbg_node->messenger.messageType & message_type)) {
@@ -401,7 +405,7 @@ static inline bool debug_messenger_log_msg(const debug_report_data *debug_data,
                 if (it == debug_data->debugUtilsObjectNameMap->end()) {
                     continue;
                 }
-                callback_data->pObjects[obj].pObjectName = it->second.c_str();
+                objects[obj].pObjectName = it->second.c_str();
             }
             if (layer_dbg_node->messenger.pfnUserCallback(message_severity, message_type, callback_data,
                                                           layer_dbg_node->pUserData)) {
@@ -431,6 +435,7 @@ static inline bool debug_messenger_log_msg(const debug_report_data *debug_data,
         layer_dbg_node = layer_dbg_node->pNext;
     }
 
+    callback_data->pObjects = nullptr;
     return bail;
 }
 
